@@ -1,8 +1,20 @@
-export default function Quiz() {
+import { PrismaClient } from '@/generated/prisma'
+import QuizOptions from '@/components/QuizOptions'
+
+const prisma = new PrismaClient()
+
+export default async function QuizPage() {
+  const quiz = await prisma.quiz.findFirst({
+    include: { options: true }
+  })
+
+  if (!quiz) return <p>No quiz found.</p>
+
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center text-center p-8">
-      <h1 className="text-4xl font-bold text-indigo-600">Test</h1>
-      <p className="mt-4 text-xl text-gray-700">Test burada olacak</p>
+    <main className="p-8 max-w-xl mx-auto">
+      <h1 className="text-2xl font-bold mb-4">{quiz.question}</h1>
+      {/* Client component çağrısı */}
+      <QuizOptions options={quiz.options} />
     </main>
-  );
+  )
 }
