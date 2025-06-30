@@ -1,8 +1,24 @@
+import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+
 export default function Home() {
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center text-center p-8">
-      <h1 className="text-4xl font-bold text-indigo-600">Refika Web 1.1.0</h1>
-      <p className="mt-4 text-xl text-gray-700">Bismillah! Geliştirme başlasın 🚀</p>
+    <main className="flex flex-col items-center justify-center min-h-screen p-8 space-y-6">
+      <h1 className="text-3xl font-bold">Refika’ya Hoş Geldin 🌸</h1>
+
+      <div className="flex space-x-4">
+        <Link href="/quiz">
+          <Button className="bg-indigo-600 text-white hover:bg-indigo-700">
+            Quiz'e Başla
+          </Button>
+        </Link>
+
+        <Link href="/matching">
+          <Button variant="secondary">
+            Eşleştirmeye Başla
+          </Button>
+        </Link>
+      </div>
     </main>
-  );
+  )
 }
