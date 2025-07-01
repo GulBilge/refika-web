@@ -1,3 +1,8 @@
+![Built with Next.js](https://img.shields.io/badge/Built%20with-Next.js-blue)
+![Supabase](https://img.shields.io/badge/Backend-Supabase-3ECF8E)
+![Tailwind CSS](https://img.shields.io/badge/Styling-Tailwind_CSS-38B2AC)
+![Mobile First](https://img.shields.io/badge/Design-Mobile--First-orange)
+![Status](https://img.shields.io/badge/Status-In_Progress-yellow)
 
 # Refika Web
 
