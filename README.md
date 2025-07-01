@@ -1,3 +1,4 @@
+
 # Refika Web
 
 📘 A lightweight, mobile-first web application for learning Qur'anic Arabic through interactive matching activities.
@@ -34,3 +35,81 @@
 ```bash
 pnpm install
 pnpm dev
+
+Roadmap
+
+[x] Basic UI and layout
+
+[x] Matching activity prototype
+
+[x] Supabase Auth setup
+
+[ ] Quiz and content management system (CMS)
+
+[ ] Leaderboard and user progress tracking
+
+
+
+---
+
+🇹🇷 Türkçe
+
+Genel Bakış
+
+Refika Web, Kur’an Arapçası öğrenimini destekleyen, etkileşimli eşleştirme oyunları içeren sade ve hafif bir web uygulamasıdır. Özellikle mobil cihazlar için optimize edilmiştir ve çevrim içi kurslardan öğrenilen bilgilerin pekiştirilmesini amaçlar.
+
+> Proje, Next.js ile geliştirilmiş, Tailwind CSS ile stillendirilmiş ve Supabase altyapısı ile çalışmaktadır.
+
+
+
+Özellikler
+
+📱 Mobil öncelikli tasarım
+
+⚡ Hafif ve hızlı yapı
+
+🧠 Eşleştirme temelli öğrenme oyunları
+
+🔧 Supabase ile kimlik doğrulama ve veritabanı yönetimi
+
+🌱 Kolayca genişletilebilir yapı
+
+
+Teknolojiler
+
+Next.js (React)
+
+Tailwind CSS
+
+Supabase (Auth & PostgreSQL)
+
+LEAF framework
+
+
+Yerel Kurulum
+
+pnpm install
+pnpm dev
+
+Yol Haritası
+
+[x] Temel arayüz ve sayfa yapısı
+
+[x] Eşleştirme oyunu prototipi
+
+[x] Supabase ile kimlik doğrulama kurulumu
+
+[ ] Quiz ve içerik yönetim sistemi (CMS)
+
+[ ] Sıralama tablosu ve kullanıcı ilerleme takibi
+
+
+
+---
+
+> Made with 🧡 to support your sacred language journey.
+
+
+
+
+
