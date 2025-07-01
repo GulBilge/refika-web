@@ -94,9 +94,11 @@ LEAF framework
 
 Yerel Kurulum
 
+```bash
 pnpm install
 pnpm dev
 
+```
 Yol Haritası
 
 [x] Temel arayüz ve sayfa yapısı
