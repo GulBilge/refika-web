@@ -1,10 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabaseClient'
+import { supabase } from '@/utils/supabase/client'
+import { getUserWithRole } from '@/lib/getUserWithRole'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import LogoutButton from '@/components/LogoutButton'
 
 export default function AdminDashboard() {
+  const [loading, setLoading] = useState(true)
+  const router = useRouter()
   const [stats, setStats] = useState({
     termCount: 0,
     quizCount: 0,
@@ -13,7 +18,14 @@ export default function AdminDashboard() {
   })
 
   useEffect(() => {
-    async function fetchStats() {
+    async function checkRoleAndFetch() {
+      const user = await getUserWithRole()
+      if (!user || user.role !== 'admin') {
+        router.push('/login')
+        return
+      }
+      setLoading(false)
+
       const [term, quiz, match, users] = await Promise.all([
         supabase.from('terms').select('*', { count: 'exact', head: true }),
         supabase.from('quizzes').select('*', { count: 'exact', head: true }),
@@ -29,12 +41,19 @@ export default function AdminDashboard() {
       })
     }
 
-    fetchStats()
-  }, [])
+    checkRoleAndFetch()
+  }, [router])
+
+  if (loading) {
+    return <p className="p-6 text-center">Yükleniyor...</p>
+  }
 
   return (
     <main className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">Admin Dashboard</h1>
+      <header className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+        <LogoutButton />
+      </header>
 
       {/* İstatistik Kartları */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10">
@@ -62,7 +81,7 @@ function StatCard({ label, count }: { label: string; count: number }) {
       <div className="text-2xl font-bold text-indigo-600">{count}</div>
       <div className="text-sm text-gray-600">{label}</div>
     </div>
-  );
+  )
 }
 
 function LinkItem({ href, label }: { href: string; label: string }) {

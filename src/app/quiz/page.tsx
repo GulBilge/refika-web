@@ -1,7 +1,7 @@
 'use client' // Çünkü useEffect ile veri çekeceğiz
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabaseClient'
+import { supabase } from '@/utils/supabase/client'
 import QuizOptions from '@/components/QuizOptions'
 
 type Option = {
