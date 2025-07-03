@@ -5,7 +5,6 @@ import { supabase } from '@/utils/supabase/client'
 import { getUserWithRole } from '@/lib/getUserWithRole'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import LogoutButton from '@/components/LogoutButton'
 
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
@@ -51,8 +50,7 @@ export default function AdminDashboard() {
   return (
     <main className="p-6 max-w-4xl mx-auto">
       <header className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-        <LogoutButton />
+        <h1 className="text-3xl font-bold">Yönetim Paneli</h1>
       </header>
 
       {/* İstatistik Kartları */}
@@ -64,7 +62,6 @@ export default function AdminDashboard() {
       </div>
 
       {/* Hızlı Erişim Linkleri */}
-      <h2 className="text-xl font-semibold mb-4">Yönetim Panelleri</h2>
       <ul className="space-y-3">
         <LinkItem href="/admin/terms" label="📘 Dönemleri Yönet" />
         <LinkItem href="/admin/quizzes" label="📋 Quizleri Yönet" />

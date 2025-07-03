@@ -13,7 +13,7 @@ export async function getUserWithRole() {
     error: userError,
   } = await supabase.auth.getUser()
 
-  if (userError || !user) return null
+  if (userError || !user) return null 
 
   return {
     id: user.id,

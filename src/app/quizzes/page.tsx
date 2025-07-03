@@ -16,7 +16,7 @@ type Quiz = {
   options: Option[]
 }
 
-export default function QuizPage() {
+export default function QuizzesPage() {
   const [quiz, setQuiz] = useState<Quiz | null>(null)
 
   useEffect(() => {

@@ -3,13 +3,15 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { getUserWithRole } from '@/lib/getUserWithRole'
-import { Button } from '@/components/ui/button'
+import { AcademicCapIcon, PuzzlePieceIcon } from '@heroicons/react/24/outline';
+import DashboardCard from '@/components/ui/DashboardCard'
 
 export default function Home() {
   const [role, setRole] = useState<string | null>(null)
 
   useEffect(() => {
     getUserWithRole().then((user) => {
+      console.log('User with role:', user)
       if (user) setRole(user.role)
     })
   }, [])
@@ -27,18 +29,19 @@ export default function Home() {
           </Link>
         )}
       </div>
-      <div className="flex space-x-4">
-        <Link href="/quiz">
-          <Button className="bg-indigo-600 text-white hover:bg-indigo-700">
-            Quiz'e Başla
-          </Button>
-        </Link>
-
-        <Link href="/matching">
-          <Button variant="secondary">
-            Eşleştirmeye Başla
-          </Button>
-        </Link>
+      <div className="p-6 grid gap-6 grid-cols-1 sm:grid-cols-2 max-w-4xl mx-auto">
+      <DashboardCard
+        title="Quizler"
+        description="Dönemine ait quizlere ulaş ve bilgini sınavla."
+        href="/quiz"
+        icon={<AcademicCapIcon className="w-12 h-12 text-purple-600" />}
+      />
+      <DashboardCard
+        title="Eşleştirmeler"
+        description="Dönemine ait eşleştirme oyunlarıyla pratik yap."
+        href="/matches"
+        icon={<PuzzlePieceIcon className="w-12 h-12 text-purple-600" />}
+      />
       </div>
     </main>
   )
