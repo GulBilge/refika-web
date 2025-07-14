@@ -2,8 +2,6 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
-import LogoutButton from '@/components/ui/LogoutButton'
-import BackToHomeButton from '@/components/ui/BackToHomeButton'
 import HamburgerMenu from '@/components/ui/HamburgerMenu'
 
 const geistSans = Geist({
