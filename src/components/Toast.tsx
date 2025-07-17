@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { toast } from './ui/toast';
 
 interface ToastProps {
   message: string
@@ -8,13 +9,22 @@ interface ToastProps {
   duration?: number
 }
 
-export default function Toast({ message, type = 'success', duration = 3000 }: ToastProps) {
+export default function Toast({ duration = 3000 }: ToastProps) {
   const [visible, setVisible] = useState(true)
-
+  const [message, setMessage] = useState('');
+  const [type, setType] = useState<'success' | 'error'>('success');
   useEffect(() => {
-    const timer = setTimeout(() => setVisible(false), duration)
-    return () => clearTimeout(timer)
-  }, [duration])
+    toast._register((msg, type = 'success', duration = 3000) => {
+      setVisible(false); // varsa kapat
+      setTimeout(() => {
+        setType(type);
+        setMessage(msg);
+        setVisible(true);
+        setTimeout(() => setVisible(false), duration);
+      }, 50); // küçük bekleme
+    });
+  }, []);
+
 
   if (!visible) return null
 

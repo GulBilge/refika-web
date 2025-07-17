@@ -8,7 +8,7 @@ type Option = { id?: string; text: string }
 type Question = {
   id?: string
   text: string
-  score: number
+  points: number
   options: Option[]
 }
 
@@ -36,7 +36,7 @@ export default function QuizDetailForm({ onSave }: Props) {
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
 
-  const totalscore = questions.reduce((sum, q) => sum + q.score, 0)
+  const totalpoints = questions.reduce((sum, q) => sum + q.points, 0)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -62,7 +62,7 @@ export default function QuizDetailForm({ onSave }: Props) {
 
         if (quizData) {
           setTitle(quizData.title)
-          setTermId(quizData.termId)
+          setTermId(quizData.term_id)
         }
 
         const { data: questionRows, error: questionError } = await supabase
@@ -86,7 +86,7 @@ export default function QuizDetailForm({ onSave }: Props) {
             return {
               id: q.id,
               text: q.text,
-              score: q.score,
+              points: q.points,
               options: optionRows?.map((opt) => ({ id: opt.id, text: opt.text })) || [],
             }
           })
@@ -105,7 +105,7 @@ export default function QuizDetailForm({ onSave }: Props) {
   }, [quizId])
 
   const addQuestion = () => {
-    setQuestions([...questions, { text: '', score: 0, options: [] }])
+    setQuestions([...questions, { text: '', points: 0, options: [] }])
   }
 
   const removeQuestion = (index: number) => {
@@ -120,9 +120,9 @@ export default function QuizDetailForm({ onSave }: Props) {
     setQuestions(updated)
   }
 
-  const updateQuestionscore = (index: number, score: number) => {
+  const updateQuestionpoints = (index: number, points: number) => {
     const updated = [...questions]
-    updated[index].score = score
+    updated[index].points = points
     setQuestions(updated)
   }
 
@@ -148,7 +148,7 @@ export default function QuizDetailForm({ onSave }: Props) {
     setError(null)
     setSuccess(false)
 
-    if (totalscore !== 100) {
+    if (totalpoints !== 100) {
       setError('Toplam puan 100 olmalı.')
       return
     }
@@ -169,14 +169,14 @@ export default function QuizDetailForm({ onSave }: Props) {
         if (questionId) {
           const { error: qError } = await supabase
             .from('questions')
-            .update({ text: q.text, score: q.score })
+            .update({ text: q.text, points: q.points })
             .eq('id', questionId)
 
           if (qError) throw qError
         } else {
           const { data: insertedQ, error: qInsertError } = await supabase
             .from('questions')
-            .insert([{ quiz_id: quizId, text: q.text, score: q.score }])
+            .insert([{ quiz_id: quizId, text: q.text, points: q.points }])
             .select()
             .single()
 
@@ -290,8 +290,8 @@ export default function QuizDetailForm({ onSave }: Props) {
               type="number"
               min={0}
               max={100}
-              value={q.score?? 0}
-              onChange={e => updateQuestionscore(qIndex, parseInt(e.target.value) || 0)}
+              value={q.points?? 0}
+              onChange={e => updateQuestionpoints(qIndex, parseInt(e.target.value) || 0)}
               placeholder="Puan (0-100)"
               className="w-24 p-2 border rounded mb-4"
             />
