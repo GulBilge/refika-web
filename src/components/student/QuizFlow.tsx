@@ -23,6 +23,9 @@ type Props = {
 }
 
 export default function QuizFlow({ questions }: Props) {
+  if(questions.length === 0) {
+    return <p className="text-sm text-gray-500">No questions available for this quiz.</p>
+  }
   const router = useRouter()
 
   const [index, setIndex] = useState(0)
@@ -63,7 +66,7 @@ export default function QuizFlow({ questions }: Props) {
 
   return (
     <QuizQuestion
-      key={questions[index].id}
+      key={questions[index]?.id}
       question={questions[index]}
       onNext={handleNext}
       isLast={index === questions.length - 1}

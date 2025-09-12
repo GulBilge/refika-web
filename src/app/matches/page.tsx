@@ -1,231 +1,76 @@
-// pages/matching.tsx
-"use client";
-import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { easeInOut } from "framer-motion";
+'use client'
 
-type Pair = { id: string; left: string; right: string };
+import { useEffect, useState } from 'react'
+import { supabase } from '@/utils/supabase/client'
+import MatchingCard from '@/components/student/MatchingCard'
+import Pagination from '@/components/student/Pagination'
 
-const allPairs: Pair[] = [
-  { id: "1", left: "Apple", right: "Red" },
-  { id: "2", left: "Banana", right: "Yellow" },
-  { id: "3", left: "Grapes", right: "Purple" },
-  { id: "4", left: "Orange", right: "Orange" },
-  { id: "5", left: "Lemon", right: "Yellow" },
-  { id: "6", left: "Kiwi", right: "Green" },
-  { id: "7", left: "Strawberry", right: "Red" },
-  { id: "8", left: "Blueberry", right: "Blue" },
-  { id: "9", left: "Pear", right: "Green" },
-  { id: "10", left: "Peach", right: "Orange" },
-  { id: "11", left: "Cherry", right: "Red" },
-  { id: "12", left: "Mango", right: "Yellow" },
-];
+type Matching = {
+  id: number;
+  title: string;
+};
 
-const SET_SIZE = 5;
+export default function StudentMatchingsPage() {
+  const [Matchings, setMatchings] = useState<Matching[]>([])
+  const [termId, setTermId] = useState('')
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(5)
+  const [total, setTotal] = useState(0)
+  const [search, setSearch] = useState('')
 
-const shuffleArray = <T,>(arr: T[]) => [...arr].sort(() => Math.random() - 0.5);
+  useEffect(() => {
+    const fetchMatchings = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      const { data: userData } = await supabase
+        .from('users')
+        .select('term_id')
+        .eq('id', user?.id)
+        .single()
 
-export default function Matching() {
-  const [remainingPairs, setRemainingPairs] = useState<Pair[]>([]);
-  const [currentSet, setCurrentSet] = useState<Pair[]>([]);
-  const [currentLeftSet, setCurrentLeftSet] = useState<Pair[]>([]);
-  const [currentRightSet, setCurrentRightSet] = useState<Pair[]>([]);
-  const [leftSelected, setLeftSelected] = useState<string | null>(null);
-  const [matched, setMatched] = useState<string[]>([]);
-  const [gameOver, setGameOver] = useState(false);
-  const [shake, setShake] = useState(false);
-  const [completedCount, setCompletedCount] = useState(0);
-  const [particles, setParticles] = useState<{ id: string; x: number; y: number }[]>([]);
+      if (!userData) return
 
-  useEffect(() => startNewGame(), []);
+      setTermId(userData.term_id)
 
-  const getParticleCount = () => {
-    if (window.innerWidth < 640) return 3;
-    if (window.innerWidth < 1024) return 5;
-    return 8;
-  };
+      const { data, count } = await supabase
+        .from('activities')
+        .select('*', { count: 'exact' })
+        .eq('term_id', userData.term_id)
+        .eq('activity_type', 'matching')      // sadece eşleştirmeleri al
+        .ilike('title', `%${search}%`)
+        .range((page - 1) * limit, page * limit - 1)
 
-  const spawnParticles = (id: string) => {
-    const count = getParticleCount();
-    const newParticles = Array.from({ length: count }).map((_, idx) => ({
-      id: id + "-" + idx,
-      x: Math.random() * 40 - 20,
-      y: Math.random() * -40 - 20,
-    }));
-    setParticles(newParticles);
-    setTimeout(() => setParticles([]), 600);
-  };
-
-  const startNewGame = () => {
-    const shuffled = shuffleArray(allPairs);
-    setRemainingPairs(shuffled);
-    setMatched([]);
-    setLeftSelected(null);
-    setGameOver(false);
-    setShake(false);
-    setCompletedCount(0);
-    setParticles([]);
-    loadNextSet(shuffled);
-  };
-
-  const loadNextSet = (pairs: Pair[]) => {
-    const nextSet = pairs.slice(0, SET_SIZE);
-    const nextLeftSet = shuffleArray(nextSet);
-    const nextRightSet = shuffleArray(nextSet);
-
-    setCurrentSet(nextSet);
-    setCurrentLeftSet(nextLeftSet);
-    setCurrentRightSet(nextRightSet);
-    setRemainingPairs(pairs.slice(SET_SIZE));
-    setMatched([]);
-    setLeftSelected(null);
-  };
-
-  const handleClick = (side: "left" | "right", id: string) => {
-    if (gameOver) return;
-
-    if (side === "left") {
-      setLeftSelected(id);
-    } else if (side === "right" && leftSelected) {
-      const leftPair = currentSet.find((p) => p.id === leftSelected);
-      const rightPair = currentSet.find((p) => p.id === id);
-      if (leftPair?.id === rightPair?.id) {
-        const newMatched = [...matched, leftSelected];
-        setMatched(newMatched);
-        setLeftSelected(null);
-        setCompletedCount((prev) => prev + 1);
-
-        spawnParticles(leftSelected);
-
-        if (newMatched.length === currentSet.length) {
-          if (remainingPairs.length > 0) {
-            setTimeout(() => loadNextSet(remainingPairs), 600);
-          }
-        }
-      } else {
-        setShake(true);
-        setTimeout(() => setGameOver(true), 400);
-      }
+      setMatchings(data || [])
+      setTotal(count || 0)
     }
-  };
 
-  const boxAnimation = (p: Pair, side: "left" | "right") => ({
-    opacity: 1,
-    y: 0,
-    scale: matched.includes(p.id) ? 1.05 : 1,
-    boxShadow: matched.includes(p.id)
-      ? "0 0 12px 4px #34d399"
-      : "0 0 0px 0px transparent",
-    backgroundColor: matched.includes(p.id)
-      ? "#d1fae5"
-      : leftSelected === p.id && side === "left"
-      ? "#fef08a"
-      : "#ffffff",
-  });
-
-  const containerVariants = {
-    hidden: {},
-    visible: { transition: { staggerChildren: 0.1 } },
-  };
-  const itemVariants = {
-    hidden: { opacity: 0, y: -10 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: easeInOut } },
-  };
+    fetchMatchings()
+  }, [page, limit, search])
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-50 relative">
-      <h1 className="text-2xl font-bold mb-2">Matching Game</h1>
-      <p className="mb-4 font-medium text-gray-700">
-        Doğru: {completedCount} / {allPairs.length}
-      </p>
+    <div className="p-4">
+      <h1 className="text-xl font-bold mb-4">Matchings</h1>
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={currentSet.map((p) => p.id).join(",")}
-          className="grid grid-cols-2 gap-4 w-full max-w-md"
-          initial={{ x: 100, opacity: 0 }}
-          animate={
-            shake
-              ? { x: [0, -6, 6, -6, 6, 0], opacity: 1 }
-              : { x: 0, opacity: 1, transition: { duration: 0.6, ease: "easeInOut" } }
-          }
-          exit={{ x: -100, opacity: 0, transition: { duration: 0.6, ease: "easeInOut" } }}
-        >
-          {/* Sol Sütun */}
-          <motion.div className="flex flex-col gap-2">
-            {currentLeftSet.map((p) => (
-              <motion.div
-                key={p.id}
-                layout
-                onClick={() => handleClick("left", p.id)}
-                animate={boxAnimation(p, "left")}
-                className="p-4 rounded-md cursor-pointer text-center border border-gray-300 shadow-sm relative break-words overflow-hidden"
-              >
-                <span className="whitespace-normal">{p.left}</span>
-                {matched.includes(p.id) && (
-                  <span className="absolute top-1 right-1 text-green-600 font-bold">✔</span>
-                )}
-              </motion.div>
-            ))}
-          </motion.div>
+      <input
+        type="text"
+        placeholder="Search by title..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="border px-2 py-1 mb-4 rounded"
+      />
 
-          {/* Sağ Sütun */}
-          <motion.div className="flex flex-col gap-2">
-            {currentRightSet.map((p) => (
-              <motion.div
-                key={p.id}
-                layout
-                onClick={() => handleClick("right", p.id)}
-                animate={boxAnimation(p, "right")}
-                className="p-4 rounded-md cursor-pointer text-center border border-gray-300 shadow-sm relative break-words overflow-hidden"
-              >
-                <span className="whitespace-normal">{p.right}</span>
-                {matched.includes(p.id) && (
-                  <span className="absolute top-1 right-1 text-green-600 font-bold">✔</span>
-                )}
-              </motion.div>
-            ))}
-          </motion.div>
-        </motion.div>
-      </AnimatePresence>
+      <ul className="space-y-2">
+        {Matchings.map((Matching: any) => (
+          <MatchingCard key={Matching.id} title={Matching.title} id={Matching.id} />
+        ))}
+      </ul>
 
-      {/* Particle Confetti */}
-      {particles.map((p) => (
-        <motion.div
-          key={p.id}
-          initial={{ opacity: 1, x: 0, y: 0 }}
-          animate={{ opacity: 0, x: p.x, y: p.y }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
-          className="absolute w-2 h-2 bg-green-400 rounded-full"
-        />
-      ))}
-
-      {(gameOver ||
-        (remainingPairs.length === 0 && matched.length === currentSet.length)) && (
-        <div className="mt-6 text-center">
-          {gameOver ? (
-            <p className="text-red-500 font-semibold mb-3">Yanlış eşleştirme! Tekrar deneyin.</p>
-          ) : (
-            <p className="text-green-500 font-semibold mb-3">
-              Tebrikler! Tüm eşleşmeleri tamamladınız.
-            </p>
-          )}
-          <div className="flex gap-3 justify-center">
-            <button
-              onClick={startNewGame}
-              className="px-4 py-2 bg-blue-500 text-white rounded-md shadow-sm hover:bg-blue-600 transition"
-            >
-              Tekrar Oyna
-            </button>
-            <button
-              onClick={() => (window.location.href = "/")}
-              className="px-4 py-2 bg-gray-400 text-white rounded-md shadow-sm hover:bg-gray-500 transition"
-            >
-              Anasayfa
-            </button>
-          </div>
-        </div>
-      )}
+      <Pagination
+        page={page}
+        limit={limit}
+        total={total}
+        setPage={setPage}
+        setLimit={setLimit}
+      />
     </div>
-  );
+  )
 }

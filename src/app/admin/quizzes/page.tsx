@@ -23,8 +23,9 @@ export default function QuizListPage() {
   const fetchQuizzes = async () => {
     setLoading(true)
     const { data, error } = await supabase
-      .from('quizzes')
+      .from('activities')
       .select('id, title, created_at, term_id')
+      .eq('activity_type', 'quiz')
       .order('created_at', { ascending: false })
     if (!error && data) setQuizzes(data)
     setLoading(false)
@@ -33,7 +34,7 @@ export default function QuizListPage() {
   const handleDelete = async (id: string) => {
     const confirm = window.confirm('Bu quiz silinecek. Emin misiniz?')
     if (!confirm) return
-    const { error } = await supabase.from('quizzes').delete().eq('id', id)
+    const { error } = await supabase.from('activities').delete().eq('id', id)
     if (!error) {
       fetchQuizzes()
     }

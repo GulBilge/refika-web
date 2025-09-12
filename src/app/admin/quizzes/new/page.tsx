@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/utils/supabase/client'
-import { toast } from '@/components/ui/toast' // kendi toast'ını kullan
+import { toast } from '@/components/ui/toast'
 import { v4 as uuidv4 } from 'uuid'
 
 export default function NewQuizPage() {
@@ -32,8 +32,8 @@ export default function NewQuizPage() {
   }, [])
 
   const handleAddQuestion = () => {
-    setQuestions([
-      ...questions,
+    setQuestions((prev) => [
+      ...prev,
       {
         id: uuidv4(),
         text: '',
@@ -44,6 +44,10 @@ export default function NewQuizPage() {
         ],
       },
     ])
+  }
+
+  const handleRemoveQuestion = (questionId: string) => {
+    setQuestions((prev) => prev.filter((q) => q.id !== questionId))
   }
 
   const handleAddOption = (questionId: string) => {
@@ -59,10 +63,6 @@ export default function NewQuizPage() {
     )
   }
 
-  const handleRemoveQuestion = (questionId: string) => {
-    setQuestions((prev) => prev.filter((q) => q.id !== questionId))
-  }
-
   const handleRemoveOption = (questionId: string, optionId: string) => {
     setQuestions((prev) =>
       prev.map((q) =>
@@ -74,60 +74,143 @@ export default function NewQuizPage() {
   }
 
   const handleSubmit = async () => {
-    const total = questions.reduce((sum, q) => sum + Number(q.points), 0)
-    if (total !== 100) {
-      toast.error('Toplam puan 100 olmalı')
+    // Adım 1: Temel hata kontrolleri
+    if (!title) {
+      toast.error('Lütfen bir sınav başlığı girin.')
       return
     }
-    if (!title || !termId || questions.length === 0) {
-      toast.error('Tüm alanlar doldurulmalı')
+    if (!termId) {
+      toast.error('Lütfen bir dönem seçin.')
+      return
+    }
+    if (questions.length === 0) {
+      toast.error('En az bir soru eklemelisiniz.')
       return
     }
 
+    // Adım 2: Form verilerini doğrulama
+    for (const q of questions) {
+      if (!q.text.trim()) {
+        toast.error('Tüm soruların metni doldurulmalıdır.')
+        return
+      }
+      if (q.options.some(opt => !opt.text.trim())) {
+        toast.error('Tüm seçeneklerin metni doldurulmalıdır.')
+        return
+      }
+      if (!q.options.some(opt => opt.is_correct)) {
+        toast.error('Her soru için en az bir doğru şık seçilmelidir.')
+        return
+      }
+    }
+
+    // Adım 3: Sınavı veritabanına kaydetme
     const { data: quizData, error: quizError } = await supabase
-      .from('quizzes')
-      .insert({ title, term_id: termId })
-      .select()
+      .from('activities')
+      .insert({ title, term_id: termId, activity_type: 'quiz' })
+      .select('id')
       .single()
 
-    if (quizError || !quizData?.id) {
-      toast.error('Quiz oluşturulamadı')
+    if (quizError) {
+      toast.error('Sınav oluşturulurken bir hata oluştu.')
+      console.error(quizError)
       return
     }
 
-    for (const q of questions) {
-      const { data: questionData, error: qError } = await supabase
-        .from('questions')
-        .insert({
-          quiz_id: quizData.id,
-          text: q.text,
-          points: q.points,
-        })
-        .select()
-        .single()
+    const quizId = quizData.id
 
-      if (qError || !questionData?.id) continue
+    // Adım 4: Soruları ve seçenekleri toplu olarak kaydetme
+    const questionsPayload = questions.map((q) => ({
+      quiz_id: quizId,
+      text: q.text,
+      points: q.points,
+    }))
 
-      const optionsPayload = q.options.map((opt) => ({
-        question_id: questionData.id,
+    const { data: questionsData, error: questionsError } = await supabase
+      .from('questions')
+      .insert(questionsPayload)
+      .select('id, text')
+
+    if (questionsError) {
+      toast.error('Sorular kaydedilirken bir hata oluştu.')
+      console.error(questionsError)
+      // Quiz'i silmek isteyebilirsin
+      await supabase.from('activities').delete().eq('id', quizId)
+      return
+    }
+
+    const optionsPayload = questions.flatMap((q) => {
+      const dbQuestion = questionsData.find((dbQ) => dbQ.text === q.text)
+      return q.options.map((opt) => ({
+        question_id: dbQuestion?.id,
         text: opt.text,
         is_correct: opt.is_correct,
       }))
-      await supabase.from('options').insert(optionsPayload)
+    })
+
+    const { error: optionsError } = await supabase
+      .from('options')
+      .insert(optionsPayload)
+
+    if (optionsError) {
+      toast.error('Seçenekler kaydedilirken bir hata oluştu.')
+      console.error(optionsError)
+      // Soruları ve quiz'i silmek isteyebilirsin
+      await supabase.from('questions').delete().in('id', questionsData.map(q => q.id))
+      await supabase.from('activities').delete().eq('id', quizId)
+      return
     }
 
-    toast.success('Quiz başarıyla oluşturuldu')
+    toast.success('Sınav başarıyla oluşturuldu! 🎉')
     router.push('/admin/quizzes')
+  }
+
+  // Arayüzdeki input alanlarının state'lerini yönetmek için yardımcı fonksiyonlar
+  const handleQuestionChange = (id: string, field: string, value: any) => {
+    setQuestions((prev) =>
+      prev.map((q) => (q.id === id ? { ...q, [field]: value } : q))
+    )
+  }
+
+  const handleOptionChange = (questionId: string, optionId: string, value: string) => {
+    setQuestions((prev) =>
+      prev.map((q) =>
+        q.id === questionId
+          ? {
+              ...q,
+              options: q.options.map((o) =>
+                o.id === optionId ? { ...o, text: value } : o
+              ),
+            }
+          : q
+      )
+    )
+  }
+
+  const handleCorrectOptionChange = (questionId: string, optionId: string) => {
+    setQuestions((prev) =>
+      prev.map((q) =>
+        q.id === questionId
+          ? {
+              ...q,
+              options: q.options.map((o) => ({
+                ...o,
+                is_correct: o.id === optionId,
+              })),
+            }
+          : q
+      )
+    )
   }
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
-      <h1 className="text-2xl font-bold mb-6">Yeni Quiz Oluştur</h1>
+      <h1 className="text-2xl font-bold mb-6">Yeni Sınav Oluştur 📝</h1>
 
       <div className="space-y-4">
         <input
           type="text"
-          placeholder="Quiz Başlığı"
+          placeholder="Sınav Başlığı"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className="w-full border rounded px-3 py-2"
@@ -145,10 +228,10 @@ export default function NewQuizPage() {
             </option>
           ))}
         </select>
-
+        
         {questions.map((q, qi) => (
           <div key={q.id} className="border rounded p-4 space-y-2">
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <h2 className="font-semibold">Soru {qi + 1}</h2>
               {questions.length > 1 && (
                 <button onClick={() => handleRemoveQuestion(q.id)} className="text-red-500">
@@ -160,69 +243,31 @@ export default function NewQuizPage() {
               type="text"
               placeholder="Soru metni"
               value={q.text}
-              onChange={(e) =>
-                setQuestions((prev) =>
-                  prev.map((item) =>
-                    item.id === q.id ? { ...item, text: e.target.value } : item
-                  )
-                )
-              }
+              onChange={(e) => handleQuestionChange(q.id, 'text', e.target.value)}
               className="w-full border rounded px-3 py-2"
             />
             <input
               type="number"
               placeholder="Puan"
               value={q.points}
-              onChange={(e) =>
-                setQuestions((prev) =>
-                  prev.map((item) =>
-                    item.id === q.id ? { ...item, points: Number(e.target.value) } : item
-                  )
-                )
-              }
+              onChange={(e) => handleQuestionChange(q.id, 'points', Number(e.target.value))}
               className="w-full border rounded px-3 py-2"
             />
+            
             {q.options.map((opt, oi) => (
               <div key={opt.id} className="flex items-center gap-2">
                 <input
                   type="text"
                   placeholder={`Seçenek ${oi + 1}`}
                   value={opt.text}
-                  onChange={(e) =>
-                    setQuestions((prev) =>
-                      prev.map((item) =>
-                        item.id === q.id
-                          ? {
-                              ...item,
-                              options: item.options.map((o) =>
-                                o.id === opt.id ? { ...o, text: e.target.value } : o
-                              ),
-                            }
-                          : item
-                      )
-                    )
-                  }
+                  onChange={(e) => handleOptionChange(q.id, opt.id, e.target.value)}
                   className="flex-1 border rounded px-3 py-2"
                 />
                 <input
                   type="radio"
                   name={`correct-${q.id}`}
                   checked={opt.is_correct}
-                  onChange={() =>
-                    setQuestions((prev) =>
-                      prev.map((item) =>
-                        item.id === q.id
-                          ? {
-                              ...item,
-                              options: item.options.map((o) => ({
-                                ...o,
-                                is_correct: o.id === opt.id,
-                              })),
-                            }
-                          : item
-                      )
-                    )
-                  }
+                  onChange={() => handleCorrectOptionChange(q.id, opt.id)}
                 />
                 <button
                   onClick={() => handleRemoveOption(q.id, opt.id)}
@@ -232,25 +277,20 @@ export default function NewQuizPage() {
                 </button>
               </div>
             ))}
-            <button
-              onClick={() => handleAddOption(q.id)}
-              className="text-sm text-blue-500 mt-1"
-            >
-              + Şık Ekle
+            <button onClick={() => handleAddOption(q.id)} className="text-sm text-blue-500 mt-1">
+              + Seçenek Ekle
             </button>
           </div>
         ))}
-
         <button onClick={handleAddQuestion} className="text-blue-600 mt-2">
           + Soru Ekle
         </button>
-
         <div className="pt-4">
           <button
             onClick={handleSubmit}
             className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
           >
-            Kaydet
+            Sınavı Kaydet
           </button>
         </div>
       </div>

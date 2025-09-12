@@ -1,20 +1,25 @@
 'use client'
 
-import { supabase } from '@/utils/supabase/client'
-import { useParams } from 'next/navigation'
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter, useParams } from 'next/navigation'
+import { supabase } from '@/utils/supabase/client'
+import { toast } from '@/components/ui/toast'
+import { v4 as uuidv4 } from 'uuid'
 
+// Tip tanımları
 type Option = {
-  is_correct?: boolean
-  id?: string
+  id: string
   text: string
+  is_correct: boolean
+  isNew?: boolean
 }
 
 type Question = {
-  id?: string
+  id: string
   text: string
   points: number
   options: Option[]
+  isNew?: boolean
 }
 
 type Term = {
@@ -22,136 +27,56 @@ type Term = {
   name: string
 }
 
-interface QuizDetailFormProps {
-  onSave?: () => void
-}
-
-const fetchTerms = async () => {
-  const { data, error } = await supabase.from('terms').select('id, name').order('name')
-  if (error) throw error
-  return data || []
-}
-
-const fetchQuizAndQuestions = async (quizId: string) => {
-  const { data: quizData, error: quizError } = await supabase
-    .from('quizzes')
-    .select('id, title, term_id')
-    .eq('id', quizId)
-    .single()
-  if (quizError) throw quizError
-
-  const { data: questionRows, error: questionError } = await supabase
-    .from('questions')
-    .select('id, text, points')
-    .eq('quiz_id', quizId)
-    .order('id')
-  if (questionError) throw questionError
-
-  const questionsWithOptions = await Promise.all(
-    (questionRows || []).map(async (q) => {
-      const { data: optionRows, error: optionError } = await supabase
-        .from('options')
-        .select('id, text, is_correct')
-        .eq('question_id', q.id)
-        .order('id')
-      if (optionError) throw optionError
-      return {
-        ...q,
-        options: optionRows?.map((opt) => ({ id: opt.id, text: opt.text, is_correct: opt.is_correct })) || [],
-      }
-    })
-  )
-
-  return { quizData, questionsWithOptions }
-}
-
-const saveQuizData = async (quizId: string, title: string, termId: string | null, questions: Question[]) => {
-  const { error: quizUpdateError } = await supabase
-    .from('quizzes')
-    .update({ title, term_id: termId })
-    .eq('id', quizId)
-  if (quizUpdateError) throw quizUpdateError
-
-  for (const q of questions) {
-    let questionId = q.id
-    if (questionId) {
-      const { error: qError } = await supabase
-        .from('questions')
-        .update({ text: q.text, points: q.points })
-        .eq('id', questionId)
-      if (qError) throw qError
-    } else {
-      const { data: insertedQ, error: qInsertError } = await supabase
-        .from('questions')
-        .insert([{ quiz_id: quizId, text: q.text, points: q.points }])
-        .select('id')
-        .single()
-      if (qInsertError) throw qInsertError
-      questionId = insertedQ.id
-      q.id = questionId
-    }
-
-    const { data: existingOptionIds, error: optFetchError } = await supabase
-      .from('options')
-      .select('id')
-      .eq('question_id', questionId)
-    if (optFetchError) throw optFetchError
-
-    const optionsToDelete = existingOptionIds
-      .filter((eo) => !q.options.some((o) => o.id === eo.id))
-      .map((o) => o.id)
-
-    if (optionsToDelete.length > 0) {
-      const { error: optDelError } = await supabase.from('options').delete().in('id', optionsToDelete)
-      if (optDelError) throw optDelError
-    }
-
-    for (const o of q.options) {
-      if (o.id) {
-        const { error: optUpdateError } = await supabase
-          .from('options')
-          .update({ text: o.text, is_correct: o.is_correct ?? false })
-          .eq('id', o.id)
-        if (optUpdateError) throw optUpdateError
-      } else {
-        const { error: optInsertError } = await supabase
-          .from('options')
-          .insert([{ question_id: questionId, text: o.text, is_correct: o.is_correct ?? false }])
-        if (optInsertError) throw optInsertError
-      }
-    }
-  }
-}
-
-export default function QuizDetailForm({ onSave }: QuizDetailFormProps) {
+export default function QuizEditPage() {
   const { id: quizId } = useParams() as { id: string }
+  const router = useRouter()
   const [title, setTitle] = useState('')
   const [termId, setTermId] = useState<string | null>(null)
   const [questions, setQuestions] = useState<Question[]>([])
   const [terms, setTerms] = useState<Term[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const [success, setSuccess] = useState(false)
 
-  const totalPoints = questions.reduce((sum, q) => sum + q.points, 0)
-
+  // Veri yükleme işlemi
   useEffect(() => {
     const loadData = async () => {
       setLoading(true)
-      setError(null)
       try {
-        const [termData, { quizData, questionsWithOptions }] = await Promise.all([
-          fetchTerms(),
-          fetchQuizAndQuestions(quizId),
-        ])
+        const { data: quizData, error: quizError } = await supabase
+          .from('activities')
+          .select(`
+            id,
+            title,
+            term_id,
+            questions (
+              id,
+              text,
+              points,
+              options (
+                id,
+                text,
+                is_correct
+              )
+            )
+          `)
+          .eq('id', quizId)
+          .single()
+
+        if (quizError) throw quizError
+
+        const { data: termData, error: termError } = await supabase.from('terms').select('id, name')
+        if (termError) throw termError
         setTerms(termData)
-        setTitle(quizData.title ?? '')
-        setTermId(quizData.term_id ?? null)
-        setQuestions(questionsWithOptions)
+
+        setTitle(quizData.title)
+        setTermId(quizData.term_id)
+        setQuestions(quizData.questions.map((q: any) => ({
+          ...q,
+          isNew: false,
+          options: q.options.map((o: any) => ({ ...o, isNew: false }))
+        })))
       } catch (e: any) {
-        console.error(e)
-        setError(e.message || 'Veri yüklenirken hata oluştu.')
+        toast.error('Veri yüklenirken hata oluştu: ' + e.message)
       } finally {
         setLoading(false)
       }
@@ -159,64 +84,79 @@ export default function QuizDetailForm({ onSave }: QuizDetailFormProps) {
     loadData()
   }, [quizId])
 
-  const addQuestion = useCallback(() => {
-    setQuestions((prev) => [...prev, { text: '', points: 0, options: [] }])
+  const handleAddQuestion = useCallback(() => {
+    setQuestions((prev) => [
+      ...prev,
+      {
+        id: uuidv4(),
+        text: '',
+        points: 0,
+        isNew: true,
+        options: [
+          { id: uuidv4(), text: '', is_correct: false, isNew: true },
+          { id: uuidv4(), text: '', is_correct: false, isNew: true },
+        ],
+      },
+    ])
   }, [])
 
-  const removeQuestion = useCallback((index: number) => {
-    setQuestions((prev) => prev.filter((_, i) => i !== index))
+  const handleRemoveQuestion = useCallback((idToRemove: string) => {
+    setQuestions((prev) => prev.filter((q) => q.id !== idToRemove))
   }, [])
 
-  const updateQuestionText = useCallback((index: number, text: string) => {
+  const handleAddOption = useCallback((questionId: string) => {
     setQuestions((prev) =>
-      prev.map((q, i) => (i === index ? { ...q, text } : q))
-    )
-  }, [])
-
-  const updateQuestionPoints = useCallback((index: number, points: number) => {
-    setQuestions((prev) =>
-      prev.map((q, i) => (i === index ? { ...q, points } : q))
-    )
-  }, [])
-
-  const addOption = useCallback((qIndex: number) => {
-    setQuestions((prev) =>
-      prev.map((q, i) =>
-        i === qIndex ? { ...q, options: [...q.options, { text: '', is_correct: false }] } : q
-      )
-    )
-  }, [])
-
-  const updateOptionText = useCallback((qIndex: number, oIndex: number, text: string) => {
-    setQuestions((prev) =>
-      prev.map((q, i) =>
-        i === qIndex
+      prev.map((q) =>
+        q.id === questionId
           ? {
               ...q,
-              options: q.options.map((opt, j) => (j === oIndex ? { ...opt, text } : opt)),
+              options: [...q.options, { id: uuidv4(), text: '', is_correct: false, isNew: true }],
             }
           : q
       )
     )
   }, [])
 
-  const removeOption = useCallback((qIndex: number, oIndex: number) => {
+  const handleRemoveOption = useCallback((questionId: string, optionId: string) => {
     setQuestions((prev) =>
-      prev.map((q, i) =>
-        i === qIndex ? { ...q, options: q.options.filter((_, j) => j !== oIndex) } : q
+      prev.map((q) =>
+        q.id === questionId
+          ? { ...q, options: q.options.filter((o) => o.id !== optionId) }
+          : q
       )
     )
   }, [])
 
-  const handleCorrectOptionChange = useCallback((qIndex: number, oIndex: number) => {
+  const handleQuestionChange = useCallback((id: string, field: string, value: any) => {
     setQuestions((prev) =>
-      prev.map((q, i) =>
-        i === qIndex
+      prev.map((q) => (q.id === id ? { ...q, [field]: value } : q))
+    )
+  }, [])
+
+  const handleOptionChange = useCallback((questionId: string, optionId: string, value: string) => {
+    setQuestions((prev) =>
+      prev.map((q) =>
+        q.id === questionId
           ? {
               ...q,
-              options: q.options.map((opt, j) => ({
-                ...opt,
-                is_correct: j === oIndex,
+              options: q.options.map((o) =>
+                o.id === optionId ? { ...o, text: value } : o
+              ),
+            }
+          : q
+      )
+    )
+  }, [])
+
+  const handleCorrectOptionChange = useCallback((questionId: string, optionId: string) => {
+    setQuestions((prev) =>
+      prev.map((q) =>
+        q.id === questionId
+          ? {
+              ...q,
+              options: q.options.map((o) => ({
+                ...o,
+                is_correct: o.id === optionId,
               })),
             }
           : q
@@ -224,149 +164,227 @@ export default function QuizDetailForm({ onSave }: QuizDetailFormProps) {
     )
   }, [])
 
+  // Kaydetme işlemi
   const handleSave = async () => {
-    setError(null)
-    setSuccess(false)
-
-    if (totalPoints !== 100) {
-      setError('Toplam puan 100 olmalı.')
-      return
-    }
-
     setSaving(true)
     try {
-      await saveQuizData(quizId, title, termId, questions)
-      setSuccess(true)
-      onSave?.()
+      // 1. Veri Doğrulama
+      if (!title.trim() || !termId) {
+        toast.error('Başlık ve Dönem seçimi zorunludur.')
+        setSaving(false)
+        return
+      }
+
+      for (const q of questions) {
+        if (!q.text.trim()) {
+          toast.error('Tüm soruların metni doldurulmalıdır.')
+          setSaving(false)
+          return
+        }
+        if (q.options.some(o => !o.text.trim())) {
+          toast.error('Tüm seçeneklerin metni doldurulmalıdır.')
+          setSaving(false)
+          return
+        }
+      }
+
+      // 2. Quiz'i Güncelle
+      const { error: quizError } = await supabase
+        .from('activities')
+        .update({ title, term_id: termId })
+        .eq('id', quizId)
+      if (quizError) throw quizError
+
+      // 3. Mevcut ve Yeni soruları ayır
+      const existingQuestions = questions.filter(q => !q.isNew)
+      const newQuestions = questions.filter(q => q.isNew)
+
+      // 4. Soruları silme: mevcut DB sorularından, formda olmayanları sil
+      const { data: dbQuestions } = await supabase.from('questions').select('id').eq('quiz_id', quizId)
+      const existingQuestionIds = dbQuestions?.map(q => q.id) || []
+      const currentQuestionIds = existingQuestions.map(q => q.id)
+      const questionsToDelete = existingQuestionIds.filter(id => !currentQuestionIds.includes(id))
+
+      if (questionsToDelete.length > 0) {
+        await supabase.from('questions').delete().in('id', questionsToDelete)
+      }
+
+      // 5. Yeni soruları kaydet
+      const questionsToInsert = newQuestions.map(q => ({
+        quiz_id: quizId,
+        text: q.text,
+        points: q.points
+      }))
+
+      if (questionsToInsert.length > 0) {
+        const { data: insertedQuestions, error } = await supabase
+          .from('questions')
+          .insert(questionsToInsert)
+          .select('id')
+        if (error) throw error
+        
+        // Yeni eklenen soruların ID'lerini al ve seçeneklerini kaydet
+        for (let i = 0; i < newQuestions.length; i++) {
+            const newQId = insertedQuestions?.[i]?.id
+            if (newQId) {
+                const optionsToInsert = newQuestions[i].options.map(o => ({
+                    question_id: newQId,
+                    text: o.text,
+                    is_correct: o.is_correct
+                }))
+                if (optionsToInsert.length > 0) {
+                    await supabase.from('options').insert(optionsToInsert)
+                }
+            }
+        }
+      }
+
+      // 6. Mevcut soruları ve seçeneklerini güncelle
+      for (const q of existingQuestions) {
+        // Soru metni ve puanı güncelle
+        await supabase.from('questions').update({ text: q.text, points: q.points }).eq('id', q.id)
+        
+        // Seçenekleri silme: mevcut DB seçeneklerinden, formda olmayanları sil
+        const { data: dbOptions } = await supabase.from('options').select('id').eq('question_id', q.id)
+        const existingOptionIds = dbOptions?.map(o => o.id) || []
+        const currentOptionIds = q.options.map(o => o.id)
+        const optionsToDelete = existingOptionIds.filter(id => !currentOptionIds.includes(id))
+        
+        if (optionsToDelete.length > 0) {
+          await supabase.from('options').delete().in('id', optionsToDelete)
+        }
+        
+        // Yeni seçenekleri kaydetme ve mevcut seçenekleri güncelleme
+        const optionsToInsert = q.options.filter(o => o.isNew).map(o => ({
+          question_id: q.id,
+          text: o.text,
+          is_correct: o.is_correct
+        }))
+        
+        const optionsToUpdate = q.options.filter(o => !o.isNew)
+
+        if (optionsToInsert.length > 0) {
+          await supabase.from('options').insert(optionsToInsert)
+        }
+
+        if (optionsToUpdate.length > 0) {
+          await Promise.all(optionsToUpdate.map(o => 
+            supabase.from('options').update({ text: o.text, is_correct: o.is_correct }).eq('id', o.id)
+          ))
+        }
+      }
+
+      toast.success('Sınav başarıyla güncellendi! 🎉')
+      router.push('/admin/quizzes')
+
     } catch (e: any) {
       console.error(e)
-      setError(e.message || 'Kaydetme sırasında hata oluştu.')
+      toast.error('Kaydetme sırasında bir hata oluştu: ' + e.message)
     } finally {
       setSaving(false)
     }
   }
 
-  if (loading) return <p>Yükleniyor...</p>
+  if (loading) return <p className="text-center text-lg mt-8">Yükleniyor...</p>
 
   return (
     <div className="max-w-4xl mx-auto p-6 bg-white rounded shadow">
-      <h2 className="text-2xl font-bold mb-6">Quiz Detayları</h2>
+      <h2 className="text-2xl font-bold mb-6">Sınavı Düzenle</h2>
 
-      <label className="block mb-2 font-semibold">Quiz Başlığı</label>
-      <input
-        type="text"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        className="w-full p-2 border rounded mb-4"
-        placeholder="Quiz başlığı"
-      />
+      <div className="space-y-4">
+        <input
+          type="text"
+          placeholder="Sınav Başlığı"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="w-full border rounded px-3 py-2"
+        />
 
-      <label className="block mb-2 font-semibold">Dönem (opsiyonel)</label>
-      <select
-        value={termId ?? ''}
-        onChange={(e) => setTermId(e.target.value || null)}
-        className="w-full p-2 border rounded mb-6"
-      >
-        <option value="">Dönem seçin</option>
-        {terms.map((t) => (
-          <option key={t.id} value={t.id}>
-            {t.name}
-          </option>
-        ))}
-      </select>
-
-      <div>
-        <h3 className="text-xl font-semibold mb-4">Sorular</h3>
+        <select
+          value={termId ?? ''}
+          onChange={(e) => setTermId(e.target.value || null)}
+          className="w-full border rounded px-3 py-2"
+        >
+          <option value="">Dönem Seç</option>
+          {terms.map((term) => (
+            <option key={term.id} value={term.id}>
+              {term.name}
+            </option>
+          ))}
+        </select>
 
         {questions.map((q, qIndex) => (
-          <div key={q.id || `new-${qIndex}`} className="mb-6 border p-4 rounded bg-gray-50">
-            <div className="flex justify-between items-center mb-2">
-              <label className="font-semibold">Soru {qIndex + 1}</label>
+          <div key={q.id} className="border rounded p-4 space-y-2">
+            <div className="flex justify-between items-center">
+              <h2 className="font-semibold">Soru {qIndex + 1}</h2>
               <button
-                onClick={() => removeQuestion(qIndex)}
-                className="text-red-600 font-bold"
-                type="button"
+                onClick={() => handleRemoveQuestion(q.id)}
+                className="text-red-500"
               >
                 Sil
               </button>
             </div>
-
             <input
               type="text"
-              value={q.text}
-              onChange={(e) => updateQuestionText(qIndex, e.target.value)}
               placeholder="Soru metni"
-              className="w-full p-2 border rounded mb-2"
+              value={q.text}
+              onChange={(e) => handleQuestionChange(q.id, 'text', e.target.value)}
+              className="w-full border rounded px-3 py-2"
             />
-
             <input
               type="number"
-              min={0}
-              max={100}
+              placeholder="Puan"
               value={q.points}
-              onChange={(e) => updateQuestionPoints(qIndex, parseInt(e.target.value) || 0)}
-              placeholder="Puan (0-100)"
-              className="w-24 p-2 border rounded mb-4"
+              onChange={(e) => handleQuestionChange(q.id, 'points', Number(e.target.value))}
+              className="w-full border rounded px-3 py-2"
             />
-
-            <div>
-              <label className="font-semibold mb-1 block">Seçenekler</label>
-
-              {q.options.map((opt, oIndex) => (
-                <div key={opt.id || `new-opt-${oIndex}`} className="flex items-center mb-2 space-x-2">
-                  <input
-                    type="text"
-                    value={opt.text}
-                    onChange={(e) => updateOptionText(qIndex, oIndex, e.target.value)}
-                    placeholder="Seçenek metni"
-                    className="flex-grow p-2 border rounded"
-                  />
-                  <input
-                    type="radio"
-                    name={`correct-option-${q.id || qIndex}`}
-                    checked={opt.is_correct ?? false}
-                    onChange={() => handleCorrectOptionChange(qIndex, oIndex)}
-                  />
-                  <button
-                    onClick={() => removeOption(qIndex, oIndex)}
-                    className="text-red-600 font-bold"
-                    type="button"
-                  >
-                    X
-                  </button>
-                </div>
-              ))}
-
-              <button
-                type="button"
-                onClick={() => addOption(qIndex)}
-                className="mt-1 px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700"
-              >
-                Seçenek Ekle
-              </button>
-            </div>
+            
+            {q.options.map((opt, oIndex) => (
+              <div key={opt.id} className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder={`Seçenek ${oIndex + 1}`}
+                  value={opt.text}
+                  onChange={(e) => handleOptionChange(q.id, opt.id, e.target.value)}
+                  className="flex-1 border rounded px-3 py-2"
+                />
+                <input
+                  type="radio"
+                  name={`correct-${q.id}`}
+                  checked={opt.is_correct}
+                  onChange={() => handleCorrectOptionChange(q.id, opt.id)}
+                />
+                <button
+                  onClick={() => handleRemoveOption(q.id, opt.id)}
+                  className="text-red-500"
+                >
+                  x
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={() => handleAddOption(q.id)}
+              className="text-sm text-blue-500 mt-1"
+            >
+              + Seçenek Ekle
+            </button>
           </div>
         ))}
 
-        <button
-          type="button"
-          onClick={addQuestion}
-          className="mb-6 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-        >
-          Yeni Soru Ekle
+        <button onClick={handleAddQuestion} className="text-blue-600 mt-2">
+          + Soru Ekle
         </button>
+
+        <div className="pt-4">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50"
+          >
+            {saving ? 'Kaydediliyor...' : 'Kaydet'}
+          </button>
+        </div>
       </div>
-
-      {error && <p className="text-red-600 mb-4">{error}</p>}
-      {success && <p className="text-green-600 mb-4">Başarıyla kaydedildi!</p>}
-
-      <button
-        onClick={handleSave}
-        disabled={saving}
-        className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-      >
-        {saving ? 'Kaydediliyor...' : 'Kaydet'}
-      </button>
     </div>
   )
 }

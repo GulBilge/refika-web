@@ -13,26 +13,26 @@ export default function StudentQuizDetail() {
   useEffect(() => {
     const fetchQuiz = async () => {
       setLoading(true)
-    const { data, error } = await supabase
-    .from('quizzes')
-    .select(`
-        id,
-        title,
-        questions:questions!fk_questions_quiz (
+   const { data, error } = await supabase
+  .from('activities')
+  .select(`
+    id,
+    title,
+    questions!fk_questions_quiz (
+      id,
+      text,
+      points,
+      options!fk_options_question (
         id,
         text,
-        options:options!fk_options_question (
-            id,
-            text,
-            is_correct
-        ),
-        points
-        )
-    `)
-    .eq('id', id)
-    .single()
+        is_correct
+      )
+    )
+  `)
+  .eq('id', id)
+  .single()
 
-
+console.log('Fetched quiz data:', data, error);
       setQuiz(data)
       setLoading(false)
     }

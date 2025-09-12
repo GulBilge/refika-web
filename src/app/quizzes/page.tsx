@@ -32,9 +32,10 @@ export default function StudentQuizzesPage() {
       setTermId(userData.term_id)
 
       const { data, count } = await supabase
-        .from('quizzes')
+        .from('activities')
         .select('*', { count: 'exact' })
         .eq('term_id', userData.term_id)
+        .eq('activity_type', 'quiz')      // sadece quizleri al
         .ilike('title', `%${search}%`)
         .range((page - 1) * limit, page * limit - 1)
 
