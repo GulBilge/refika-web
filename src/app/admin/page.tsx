@@ -27,8 +27,8 @@ export default function AdminDashboard() {
 
       const [term, quiz, match, users] = await Promise.all([
         supabase.from('terms').select('*', { count: 'exact', head: true }),
-        supabase.from('quizzes').select('*', { count: 'exact', head: true }),
-        supabase.from('matching_games').select('*', { count: 'exact', head: true }),
+        supabase.from('activities').select('*', { count: 'exact', head: true }).eq("activity_type", "quiz"),
+        supabase.from('activities').select('*', { count: 'exact', head: true }).eq("activity_type", "matching"),
         supabase.from('users').select('*', { count: 'exact', head: true }),
       ])
 
@@ -65,7 +65,7 @@ export default function AdminDashboard() {
       <ul className="space-y-3">
         <LinkItem href="/admin/terms" label="📘 Dönemleri Yönet" />
         <LinkItem href="/admin/quizzes" label="📋 Quizleri Yönet" />
-        <LinkItem href="/admin/matching-games" label="🧩 Eşleştirme Oyunları" />
+        <LinkItem href="/admin/matches" label="🧩 Eşleştirme Oyunları" />
         <LinkItem href="/admin/users" label="👥 Öğrenci Listesi" />
       </ul>
     </main>
