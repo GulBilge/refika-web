@@ -48,7 +48,7 @@ export default function StudentQuizzesPage() {
 
   return (
     <div className="p-4">
-      <h1 className="text-xl font-bold mb-4">Quizzes</h1>
+      <h1 className="text-xl font-bold mb-4">Sınavlar</h1>
 
       <input
         type="text"

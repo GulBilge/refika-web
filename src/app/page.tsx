@@ -53,8 +53,8 @@ export default function Home() {
         </div>
         <div className="p-6 grid gap-6 grid-cols-1 sm:grid-cols-2 max-w-4xl mx-auto">
           <DashboardCard
-            title="Quizler"
-            description="Dönemine ait quizlere ulaş ve bilgini sınavla."
+            title="Sınavlar"
+            description="Dönemine ait sınavlara ulaş ve bilgini sınavla."
             href="/quizzes"
             icon={<AcademicCapIcon className="w-12 h-12 text-purple-600" />} />
           <DashboardCard

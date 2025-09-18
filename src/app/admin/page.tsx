@@ -64,7 +64,7 @@ export default function AdminDashboard() {
       {/* Hızlı Erişim Linkleri */}
       <ul className="space-y-3">
         <LinkItem href="/admin/terms" label="📘 Dönemleri Yönet" />
-        <LinkItem href="/admin/quizzes" label="📋 Quizleri Yönet" />
+        <LinkItem href="/admin/quizzes" label="📋 Sınavları Yönet" />
         <LinkItem href="/admin/matches" label="🧩 Eşleştirme Oyunları" />
         <LinkItem href="/admin/users" label="👥 Öğrenci Listesi" />
       </ul>

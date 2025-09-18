@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/utils/supabase/client'
 import QuizFlow from '@/components/student/QuizFlow'
+import LoadingSpinner from "@/components/ui/LoadingSpinner";
 
 export default function StudentQuizDetail() {
   const { id } = useParams()
@@ -40,8 +41,10 @@ console.log('Fetched quiz data:', data, error);
     if (id) fetchQuiz()
   }, [id])
 
-  if (loading) return <p className="p-4 text-sm">Loading...</p>
-  if (!quiz) return <p className="p-4 text-sm">Quiz not found.</p>
+    if (loading) {
+    return <LoadingSpinner />;
+  }
+  if (!quiz) return <p className="p-4 text-sm">Sınav Bulunamadı.</p>
 
   return (
     <div className="p-4 space-y-4">
